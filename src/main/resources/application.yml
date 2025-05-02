@@ -1,0 +1,45 @@
+server:
+  port : 8082
+
+spring:
+  kafka:
+    bootstrap-servers: localhost:29092  # Use 29092 for host access
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    consumer:
+      group-id: kafka-demo-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+  datasource:
+    url: jdbc:mysql://localhost:3306/sensordb
+    username: sensoruser
+    password: sensorpass
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate.format_sql: true
+
+
+mqtt:
+  broker-url: tcp://localhost:1883
+  topic: iot/sensors
+  client-id: spring-mqtt-client-${random.uuid}
+  connection-timeout: 30
+  keep-alive-interval: 60
+  max-reconnect-delay: 10
+  clean-session: true
+  automatic-reconnect: true
+app:
+  kafka:
+    topic: sensor_raw_data
+  topic: sensor_raw_data
+app.kafka.processed.topic: sensor_processed_data
+
+logging:
+  level:
+    org.springframework.kafka: INFO

@@ -1,0 +1,76 @@
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    environment:
+      ALLOW_ANONYMOUS: "true"
+      #LISTENER__1883: "0.0.0.0:1883"
+      #LISTENER__9001: "0.0.0.0:9001"
+      #PROTOCOL: "websockets"
+    command: >
+        sh -c "
+        echo 'listener 1883 0.0.0.0' > /mosquitto/config/mosquitto.conf &&
+        echo 'listener 9001 0.0.0.0' >> /mosquitto/config/mosquitto.conf &&
+        echo 'protocol websockets' >> /mosquitto/config/mosquitto.conf &&
+        echo 'allow_anonymous true' >> /mosquitto/config/mosquitto.conf &&
+        /usr/sbin/mosquitto -c /mosquitto/config/mosquitto.conf"
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_pub -h localhost -t test -m ping || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: sensordb
+      MYSQL_USER: sensoruser
+      MYSQL_PASSWORD: sensorpass
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 3s
+
+  zookeeper:
+      image: confluentinc/cp-zookeeper:7.4.0
+      container_name: zookeeper
+      environment:
+        ZOOKEEPER_CLIENT_PORT: 2181
+        ZOOKEEPER_TICK_TIME: 2000
+      healthcheck:
+        #test: ["CMD-SHELL", "echo ruok | nc localhost 2181 | grep imok || exit 1"]
+        interval: 10s
+        timeout: 20s  # Increased timeout
+        retries: 10   # More retries
+        start_period: 30s  # Extra startup time
+      ports:
+        - "2181:2181"
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_HEAP_OPTS: "-Xmx512M -Xms512M"  # Memory limits
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list || exit 1"]
+      interval: 20s
+      timeout: 30s
+      start_period: 60s
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+
+networks:
+  default:
+    driver: bridge
